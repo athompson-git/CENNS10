@@ -131,7 +131,7 @@ def RunMultinest():
                 ll += obs[i] * log(n_signal[i]) - n_signal[i] - gammaln(obs[i]+1)
         return sum(ll)
 
-    save_str = "cenns10_stat_t"
+    save_str = "cenns10_stat"
     out_str = "multinest/" + save_str + "/" + save_str
     json_str = "multinest/" + save_str + "/params.json"
 
@@ -157,7 +157,7 @@ def RunMultinestNull():
                 ll += obs[i] * log(n_signal[i]) - n_signal[i] - gammaln(obs[i]+1)
         return sum(ll)
 
-    save_str = "cenns10_stat_no_cevns_t"
+    save_str = "cenns10_stat_no_cevns"
     out_str = "multinest/" + save_str + "/" + save_str
     json_str = "multinest/" + save_str + "/params.json"
 
