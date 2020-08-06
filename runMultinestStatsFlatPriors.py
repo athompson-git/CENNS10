@@ -72,10 +72,16 @@ def prior_stat_null(cube, n, d):
 
 
 # Generate new PDFs with nuisance-controlled norms
-def events_gen_stat(cube):
+def events_gen_stat(cube, report_stats=False):
     brn_syst = cube[2]*brn_prompt + cube[3]*brn_delayed
     cevns_syst = cube[0]*cevns
     ss_syst = cube[1]*ss
+
+    if report_stats:
+        print("N_CEvNS = ", sum(cevns_syst))
+        print("N_BRN_PRO = ", sum(cube[2]*brn_prompt))
+        print("N_BRN_DEL = ", sum(cube[3]*brn_delayed))
+        print("N_SS = ", sum(ss_syst))
 
     return (brn_syst + cevns_syst + ss_syst).clip(min=0.0)
 
@@ -119,7 +125,10 @@ def PrintSignificance():
     print("Significance (stat):")
     stat_q = sqrt(abs(2*(-poisson(obs, events_gen_stat(bf_stat)) \
                         + poisson(obs, events_gen_stat_null(bf_stat_null)))))
+
     print(stat_q)
+    print("Best Fit Norms:")
+    events_gen_stat(bf_stat, report_stats=True)
 
 
 
@@ -153,11 +162,11 @@ def RunMultinest():
 def RunMultinestNull():
     def loglike(cube, ndim, nparams):
         n_signal = events_gen_stat_null(cube)
-        ll = cut_crit*(obs * log(n_signal) - n_signal - gammaln(obs+1)) \
+        ll = cut_crit*nan_to_num(obs * log(n_signal) - n_signal - gammaln(obs+1)) \
              - (cube[0] - 1)**2 / (2 * ss_error**2) \
              - (cube[1] - 1)**2 / (2 * 0.3**2) \
              - (cube[2] - 1)**2 / (2)
-        return sum(ll)
+        return sum(nan_to_num(ll))
 
     save_str = "cenns10_stat_null_llConstraint"
     out_str = "multinest/" + save_str + "/" + save_str
