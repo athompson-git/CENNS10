@@ -5,3 +5,4 @@
 * `multinest\` : MultiNest output
 * `runMultinestStat.py` : run the stats-only fit to the CENNS-10 data using the CEvNS, BRN, and SS PDFs.
 * `runMultinestSystematics.py` : run the stats+systematics fit to the data (not up-to-date)
+* `runMultinestStatsFlatPriors.py` : run stats-only fit with flat priors but gaussian constraints in the likelihood function
