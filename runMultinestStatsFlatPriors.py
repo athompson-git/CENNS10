@@ -16,16 +16,6 @@ brndelayedpdf_data = genfromtxt("Data/delbrnpdf.txt")
 cevnspdf_data = genfromtxt("Data/cevnspdf.txt")
 obs_data = genfromtxt("Data/datanobkgsub.txt")
 
-# Read in systematics PDFs
-brnpdf_m1sigTiming = genfromtxt("Data/SystErrors/brnpdf-1sigBRNTimingMean.txt")[:,3]
-brnpdf_p1sigTiming = genfromtxt("Data/SystErrors/brnpdf+1sigBRNTimingMean.txt")[:,3]
-brnpdf_m1sigEnergy = genfromtxt("Data/SystErrors/brnpdf-1sigEnergy.txt")[:,3]
-brnpdf_p1sigEnergy = genfromtxt("Data/SystErrors/brnpdf+1sigEnergy.txt")[:,3]
-cevnspdf_m1sigF90 = genfromtxt("Data/SystErrors/cevnspdf-1sigF90.txt")[:,3]
-cevnspdf_p1sigF90 = genfromtxt("Data/SystErrors/cevnspdf+1sigF90.txt")[:,3]
-cevnspdfCEvNSTiming = genfromtxt("Data/SystErrors/cevnspdfCEvNSTimingMeanSyst.txt")[:,3]
-brnpdfBRNTimingWidth = genfromtxt("Data/SystErrors/brnpdfBRNTimingWidthSyst.txt")[:,3]
-
 # Set up CEvNS, BRN, and Observed arrays
 brn_prompt = brnpdf_data[:,3]
 brn_delayed = brndelayedpdf_data[:,3]
@@ -149,7 +139,7 @@ def RunMultinest():
     # Run the sampler with CEvNS, BRN, and SS.
     pymultinest.run(loglike, prior_stat, 4,
                     outputfiles_basename=out_str,
-                    resume=False, verbose=True, n_live_points=1000, evidence_tolerance=0.5,
+                    resume=False, verbose=True, n_live_points=1000, evidence_tolerance=0.1,
                     sampling_efficiency=0.8)
 
     # Save the parameter names to a JSON file.
@@ -175,7 +165,7 @@ def RunMultinestNull():
     # Run the sampler with just BRN, and SS.
     pymultinest.run(loglike, prior_stat_null, 3,
                     outputfiles_basename=out_str,
-                    resume=False, verbose=True, n_live_points=1000, evidence_tolerance=0.5,
+                    resume=False, verbose=True, n_live_points=1000, evidence_tolerance=0.1,
                     sampling_efficiency=0.8)
 
     # Save the parameter names to a JSON file.
