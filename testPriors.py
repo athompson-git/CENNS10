@@ -1,4 +1,5 @@
 from numpy import *
+import numpy as np
 from scipy.special import erfinv, gammaln
 from scipy.stats import skewnorm, norm, truncnorm
 import matplotlib.pyplot as plt
@@ -134,18 +135,16 @@ def PrintSignificance():
 
 def RunMultinest():
     def loglike(cube, ndim, nparams):
-        n_signal = events_gen_stat(cube)
-        ll = obs * log(n_signal) - n_signal - gammaln(obs+1)
-        return sum(ll)
+        return np.random.uniform(-1,0)
 
-    save_str = "cenns10_stat"
+    save_str = "prior_test"
     out_str = "multinest/" + save_str + "/" + save_str
     json_str = "multinest/" + save_str + "/params.json"
 
     # Run the sampler with CEvNS, BRN, and SS.
     pymultinest.run(loglike, prior_stat, 4,
                     outputfiles_basename=out_str,
-                    resume=False, verbose=True, n_live_points=1000, evidence_tolerance=0.5,
+                    resume=False, verbose=True, n_live_points=2000, evidence_tolerance=0.1,
                     sampling_efficiency=0.8)
 
     # Save the parameter names to a JSON file.
@@ -155,41 +154,13 @@ def RunMultinest():
 
 
 
-def RunMultinestNull():
-    def loglike(cube, ndim, nparams):
-        n_signal = events_gen_stat_null(cube)
-        ll = obs * log(n_signal) - n_signal - gammaln(obs+1)
-        return sum(ll)
-
-    save_str = "cenns10_stat_no_cevns"
-    out_str = "multinest/" + save_str + "/" + save_str
-    json_str = "multinest/" + save_str + "/params.json"
-
-    # Run the sampler with just BRN, and SS.
-    pymultinest.run(loglike, prior_stat_null, 3,
-                    outputfiles_basename=out_str,
-                    resume=False, verbose=True, n_live_points=1000, evidence_tolerance=0.5,
-                    sampling_efficiency=0.8)
-
-    # Save the parameter names to a JSON file.
-    params_stat_null = ["ss_norm", "BRN_prompt_norm", "BRN_delayed_norm"]
-    json.dump(params_stat_null, open(json_str, 'w'))
-
 
 
 
 if __name__ == '__main__':
 
-    PrintSignificance()
-    print("Running MultiNest with CEvNS, BRN, and SS components...")
 
-    #RunMultinest()
+    RunMultinest()
 
-    print("Starting next run for only BRN and SS components (5s)...")
 
-    time.sleep(5.0)
-
-    #RunMultinestNull()
-
-    PrintSignificance()
 
