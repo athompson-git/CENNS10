@@ -1,10 +1,13 @@
 import numpy as np
-from numpy import log10, exp, log, genfromtxt, sqrt, pi, sign, nan_to_num
+from numpy import log10, exp, log, genfromtxt, sqrt, pi, sign, nan_to_num, heaviside
 from scipy.special import erfinv, gammaln
 from scipy.stats import skewnorm, norm, truncnorm
 import matplotlib.pyplot as plt
 
+import time
+
 import pymultinest
+from pymultinest import Analyzer
 import mpi4py
 
 import json
@@ -47,35 +50,28 @@ f90 = obs_data[:,1]
 timing = obs_data[:,2]
 
 
-sigmaBrnEPlus = brnpdf_p1sigEnergy - brnpdf_data[:,3]
-sigmaBrnEMinus = brnpdf_m1sigEnergy - brnpdf_data[:,3]
-skewsBrnE = nan_to_num((abs(sigmaBrnEPlus) - abs(sigmaBrnEMinus)) / (abs(sigmaBrnEPlus) + abs(sigmaBrnEMinus)))
-signBrnE = sign(sigmaBrnEPlus)
-sigmaBrnE = abs(brnpdf_p1sigEnergy - brnpdf_m1sigEnergy)
-snBrnE = skewnorm(skewsBrnE, scale=sigmaBrnE.clip(min=0.1))
+# Define systematics.
+def eta(u):
+    return abs(2.10423 * sqrt(2) * erfinv(2*u-1))
 
-sigmaBrnTPlus = brnpdf_p1sigTiming - brnpdf_data[:,3]
-sigmaBrnTMinus = brnpdf_m1sigTiming - brnpdf_data[:,3]
-skewsBrnT = nan_to_num((abs(sigmaBrnTPlus) - abs(sigmaBrnTMinus)) / (abs(sigmaBrnTPlus) + abs(sigmaBrnTMinus)))
-signBrnT = sign(sigmaBrnTPlus)
-sigmaBrnT = abs(brnpdf_p1sigTiming - brnpdf_m1sigTiming)
-snBrnT = skewnorm(skewsBrnT, scale=sigmaBrnT.clip(min=0.1))
+def etaPlus(u):
+    return heaviside(u,1.0) * 2.10423 * sqrt(2) * erfinv(2*u-1)
 
-sigmaCEvNSF90Plus = cevnspdf_p1sigF90 - cevnspdf_data[:,3]
-sigmaCEvNSF90Minus = cevnspdf_m1sigF90 - cevnspdf_data[:,3]
-skewCEvNSF90 = nan_to_num((abs(sigmaCEvNSF90Plus) - abs(sigmaCEvNSF90Minus)) / (abs(sigmaCEvNSF90Plus) + abs(sigmaCEvNSF90Minus)))
-signCEvNSF90 = sign(sigmaCEvNSF90Plus)
-sigmaCEvNSF90 = abs(cevnspdf_p1sigF90 - cevnspdf_m1sigF90)
-snCEvNSF90 = skewnorm(skewCEvNSF90, scale=sigmaCEvNSF90.clip(min=0.1))
+def etaMinus(u):
+    return (1-heaviside(u,1.0)) * 2.10423 * sqrt(2) * erfinv(2*u-1)
 
-sigmaCEvNSTiming = cevnspdfCEvNSTiming - cevnspdf_data[:,3]
-signCEvNSTiming = sign(sigmaCEvNSTiming)
-normCEvNSTiming = norm(scale=abs(sigmaCEvNSTiming).clip(min=0.1))
+deltaBrnEPlus = brnpdf_p1sigEnergy - brn_prompt
+deltaBrnEMinus = brnpdf_m1sigEnergy - brn_prompt
 
-sigmaBRNTWidth = brnpdfBRNTimingWidth - brnpdf_data[:,3]
-signBRNTWidth = sign(sigmaBRNTWidth)
-normBRNTWidth = norm(scale=abs(sigmaBRNTWidth).clip(min=0.1))
+deltaBrnTPlus = brnpdf_p1sigTiming - brn_prompt
+deltaBrnTMinus = brnpdf_m1sigTiming - brn_prompt
 
+deltaCEvNSF90Plus = cevnspdf_p1sigF90 - cevns
+deltaCEvNSF90Minus = cevnspdf_m1sigF90 - cevns
+
+deltaCEvNSTiming = cevnspdfCEvNSTiming - cevns
+
+deltaBRNTWidth = brnpdfBRNTimingWidth - brn_prompt
 
 
 def prior_null(cube, n, d):
@@ -84,7 +80,7 @@ def prior_null(cube, n, d):
     cube[2] = normDelayedBRN.ppf(cube[2])  # BRN delayed norm
     cube[3] = cube[3]  # BRN E dist
     cube[4] = cube[4]  # BRN ttrig mean
-    cube[5] = 0.5*(cube[5]+1)  # BRN ttrig width
+    cube[5] = cube[5]  # BRN ttrig width
 
 def prior(cube, n, d):
     cube[0] = 2*cube[0]  # CEvNS norm
@@ -92,51 +88,50 @@ def prior(cube, n, d):
     cube[2] = normPromptBRN.ppf(cube[2])  # BRN prompt norm
     cube[3] = normDelayedBRN.ppf(cube[3])  # BRN delayed norm
     cube[4] = cube[4]  # CEvNS F90 E Dependence
-    cube[5] = 0.5*(cube[5]+1)  # CEvNS ttrig mean
+    cube[5] = cube[5]  # CEvNS ttrig mean
     cube[6] = cube[6]  # BRN E dist
     cube[7] = cube[7]  # BRN ttrig mean
-    cube[8] = 0.5*(cube[8]+1)  # BRN ttrig width
+    cube[8] = cube[8]  # BRN ttrig width
 
 # Adjust BRN and CEvNS PDFs with systematics
 def events_gen(cube, report_stats=False):
     # Systematically adjust BRN PDF
-    brn_syst = brn_prompt + nan_to_num(signBrnE*snBrnE.ppf(cube[6])) \
-                          + nan_to_num(signBrnT*snBrnT.ppf(cube[7])) \
-                          + nan_to_num(signBRNTWidth*normBRNTWidth.ppf(cube[8]))
+    brn_syst = brn_prompt + deltaBrnEPlus*etaPlus(cube[6]) + deltaBrnEMinus*etaMinus(cube[6]) \
+                          + deltaBrnTPlus*etaPlus(cube[7]) + deltaBrnTMinus*etaMinus(cube[7]) \
+                          + deltaBRNTWidth*eta(cube[8])
 
-    brn_syst = ((1+cube[2])*brn_syst).clip(min=0.01)
-    dbrn_syst = ((1+cube[3])*brn_delayed).clip(min=0.01)
-
+    pbrn_syst = ((1+cube[2])*brn_syst).clip(min=0.0001)
+    dbrn_syst = ((1+cube[3])*brn_delayed).clip(min=0.0001)
 
     # Systematically adjust CEvNS PDF
-    cevns_syst = cevns + nan_to_num(signCEvNSF90*snCEvNSF90.ppf(cube[4])) \
-                       + nan_to_num(signCEvNSTiming*normCEvNSTiming.ppf(cube[5]))
+    cevns_syst = cevns + deltaCEvNSF90Plus*etaPlus(cube[4]) + deltaCEvNSF90Minus*etaMinus(cube[4]) \
+                       + deltaCEvNSTiming*eta(cube[5])
 
-    cevns_syst = (cube[0]*cevns_syst).clip(min=0.01)
+    cevns_syst = (cube[0]*cevns_syst).clip(min=0.0001)
 
     # Systematically adjust SS PDF
-    ss_syst = ((1+cube[1])*ss).clip(min=0.01)
-
+    ss_syst = ((1+cube[1])*ss).clip(min=0.0001)
+    
     if report_stats:
-        print("CEvNS = ", sum(cevns_syst))
-        print("SS = ", sum(ss_syst))
-        print("Prompt BRN = ", sum(brn_syst))
-        print("Delayed BRN = ", dbrn_syst)
+        print("N_CEVNS = ", np.sum(cevns_syst))
+        print("N_PBRN = ", np.sum(pbrn_syst))
+        print("N_DBRN = ", np.sum(dbrn_syst))
+        print("N_SS = ", np.sum(ss_syst))
 
-    return brn_syst + dbrn_syst + cevns_syst + ss_syst
+    return pbrn_syst + dbrn_syst + cevns_syst + ss_syst
 
 # No CEvNS
 def events_gen_null(cube):
     # Systematically adjust BRN PDF
-    brn_syst = brn_prompt + nan_to_num(signBrnE*snBrnE.ppf(cube[3])) \
-                          + nan_to_num(signBrnT*snBrnT.ppf(cube[4])) \
-                          + nan_to_num(signBRNTWidth*normBRNTWidth.ppf(cube[5]))
+    brn_syst = brn_prompt + deltaBrnEPlus*etaPlus(cube[3]) + deltaBrnEMinus*etaMinus(cube[3]) \
+                          + deltaBrnTPlus*etaPlus(cube[4]) + deltaBrnTMinus*etaMinus(cube[4]) \
+                          + deltaBRNTWidth*eta(cube[5])
 
     # Systematically adjust BRN norm
-    brn_syst = ((1+cube[1])*brn_syst).clip(min=0.01) + ((1+cube[2])*brn_delayed).clip(min=0.01)
+    brn_syst = ((1+cube[1])*brn_syst).clip(min=0.0001) + ((1+cube[2])*brn_delayed).clip(min=0.0001)
 
     # Systematically adjust SS norm
-    ss_syst = ((1+cube[0])*ss).clip(min=0.01)
+    ss_syst = ((1+cube[0])*ss).clip(min=0.0001)
 
     return brn_syst + ss_syst
 
@@ -147,14 +142,11 @@ def poisson(obs, theory):
     return sum(ll)
 
 def PrintSignificance():
-    an = Analyzer(4, "multinest/cenns10_syst/cenns10_syst")
+    an = Analyzer(9, "multinest/cenns10_syst/cenns10_syst")
     bf = an.get_best_fit()['parameters']
 
-    an_null = Analyzer(3, "multinest/cenns10_syst_no_cevns/cenns10_syst_no_cevns")
+    an_null = Analyzer(6, "multinest/cenns10_syst_no_cevns/cenns10_syst_no_cevns")
     bf_null = an_null.get_best_fit()['parameters']
-    bf = [an.get_stats()['marginals'][0]['median'], an.get_stats()['marginals'][1]['median'],
-          an.get_stats()['marginals'][2]['median'], an.get_stats()['marginals'][3]['median']]
-    bf_null = [an_null.get_stats()['marginals'][0]['median'], an_null.get_stats()['marginals'][1]['median'],               an_null.get_stats()['marginals'][2]['median']]
 
     # Get ratio test
     print("Significance (stat):")
@@ -180,7 +172,7 @@ def RunMultinest():
     # Run the sampler with CEvNS, BRN, and SS.
     pymultinest.run(loglike, prior, 9,
                     outputfiles_basename=out_str,
-                    resume=True, verbose=True, n_live_points=2000, evidence_tolerance=0.5,
+                    resume=False, verbose=True, n_live_points=2000, evidence_tolerance=0.5,
                     sampling_efficiency=0.8)
 
     # Save the parameter names to a JSON file.
