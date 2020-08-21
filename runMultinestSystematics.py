@@ -51,14 +51,17 @@ timing = obs_data[:,2]
 
 
 # Define systematics.
+# We define the eta parameters by Gaussian functions such that for u=0.6827..., eta(u)=1.
+# In the case of asymmetric systematic PDFs, we define two Gaussian components that activate
+# depending on u > 0.5.
 def eta(u):
     return abs(2.10423 * sqrt(2) * erfinv(2*u-1))
 
 def etaPlus(u):
-    return heaviside(u,1.0) * 2.10423 * sqrt(2) * erfinv(2*u-1)
+    return heaviside(u-0.5,1.0) * 2.10423 * sqrt(2) * erfinv(2*u-1)
 
 def etaMinus(u):
-    return (1-heaviside(u,1.0)) * 2.10423 * sqrt(2) * erfinv(2*u-1)
+    return (1-heaviside(u-0.5,1.0)) * 2.10423 * sqrt(2) * erfinv(2*(1-u)-1)
 
 deltaBrnEPlus = brnpdf_p1sigEnergy - brn_prompt
 deltaBrnEMinus = brnpdf_m1sigEnergy - brn_prompt
