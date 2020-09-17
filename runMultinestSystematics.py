@@ -38,7 +38,7 @@ cevns = cevnspdf_data[:,3]
 ss = bkgpdf_data[:,3]
 
 # Define stats CDFs for priors
-ss_error = np.sqrt(np.sum(ss)/5)
+ss_error = np.sqrt(np.sum(ss)/5)/np.sum(ss)
 normSS = norm(scale=ss_error)
 normPromptBRN = norm(scale=0.3)
 normDelayedBRN = norm(scale=1.0)
@@ -83,18 +83,18 @@ def prior_null(cube, n, d):
     cube[2] = normDelayedBRN.ppf(cube[2])  # BRN delayed norm
     cube[3] = cube[3]  # BRN E dist
     cube[4] = cube[4]  # BRN ttrig mean
-    cube[5] = cube[5]  # BRN ttrig width
+    cube[5] = 0.5*(cube[5] + 1)  # BRN ttrig width
 
 def prior(cube, n, d):
-    cube[0] = 2*cube[0]  # CEvNS norm
+    cube[0] = 3*cube[0]  # CEvNS norm
     cube[1] = normSS.ppf(cube[1])  # SS norm
     cube[2] = normPromptBRN.ppf(cube[2])  # BRN prompt norm
     cube[3] = normDelayedBRN.ppf(cube[3])  # BRN delayed norm
     cube[4] = cube[4]  # CEvNS F90 E Dependence
-    cube[5] = cube[5]  # CEvNS ttrig mean
+    cube[5] = 0.5*(cube[5] + 1) # CEvNS ttrig mean
     cube[6] = cube[6]  # BRN E dist
     cube[7] = cube[7]  # BRN ttrig mean
-    cube[8] = cube[8]  # BRN ttrig width
+    cube[8] = 0.5*(cube[8] + 1)  # BRN ttrig width
 
 # Adjust BRN and CEvNS PDFs with systematics
 def events_gen(cube, report_stats=False):
