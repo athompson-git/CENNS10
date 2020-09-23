@@ -173,12 +173,13 @@ def RunMultinest():
         print(ll)
         return ll
 
-    rvs1 = np.random.uniform(0.0, 1.0, 50)
-    rvs2 = np.random.uniform(0.5, 1.0, 50)
-    rvs3 = np.random.uniform(0.0, 1.0, 50)
-    rvs4 = np.random.uniform(0.0, 1.0, 50)
-    rvs5 = np.random.uniform(0.5, 1.0, 50)
-    volume = 0.5**2 / 50
+    npoints = 100
+    rvs1 = np.random.uniform(0.0, 1.0, npoints)
+    rvs2 = np.random.uniform(0.5, 1.0, npoints)
+    rvs3 = np.random.uniform(0.0, 1.0, npoints)
+    rvs4 = np.random.uniform(0.0, 1.0, npoints)
+    rvs5 = np.random.uniform(0.5, 1.0, npoints)
+    volume = 0.5**2 / npoints
 
     def mcLikelihood(cube, ndim, nparams):
         def likelihood(s1, s2, s3, s4, s5):
